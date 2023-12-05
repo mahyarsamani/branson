@@ -27,6 +27,10 @@
 #include "replicated_driver.h"
 #include "timer.h"
 
+#ifdef ANNOTATE
+#include "roi.h"
+#endif // ANNOTATE
+
 using Constants::PARTICLE_PASS;
 using Constants::REPLICATED;
 using std::cout;
@@ -78,13 +82,22 @@ int main(int argc, char **argv) {
 
     // timing
     Timer timers;
+#ifdef ANNOTATE
+    annotate_init_();
+#endif // ANNOTATE
 
     // make mesh from input object
     timers.start_timer("Total setup");
+#ifdef ANNOTATE
+    region_begin_("setup");
+#endif // ANNOTATE
 
     Mesh mesh(input, mpi_types, mpi_info, imc_p);
     mesh.initialize_physical_properties(input);
 
+#ifdef ANNOTATE
+    region_end_("setup");
+#endif // ANNOTATE
     timers.stop_timer("Total setup");
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -100,6 +113,9 @@ int main(int argc, char **argv) {
     //--------------------------------------------------------------------------//
 
     timers.start_timer("Total non-setup");
+#ifdef ANNOTATE
+    roi_begin_();
+#endif // ANNOTATE
 
     if (input.get_dd_mode() == PARTICLE_PASS)
       imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
@@ -110,6 +126,9 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
     }
 
+#ifdef ANNOTATE
+    roi_end_();
+#endif // ANNOTATE
     timers.stop_timer("Total non-setup");
 
     if (mpi_info.get_rank() == 0) {

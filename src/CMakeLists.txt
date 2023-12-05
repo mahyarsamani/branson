@@ -9,6 +9,9 @@
 # Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
 # Release
 
+# To enable ROI annotations pass -DCMAKE_ANNOTATE_TYPE=[papi|gem5] to CMake.
+
+
 cmake_minimum_required (VERSION 3.11)
 
 
@@ -85,6 +88,106 @@ if ( "${CMAKE_BUILD_TYPE}notset" STREQUAL "notset" AND
     FORCE)
 endif ()
 
+#------------------------------------------------------------------------------#
+# Initializing annotation variables
+
+set(VALID_ROI_OPTIONS "papi" "gem5")
+
+if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
+    list(FIND VALID_ROI_OPTIONS ${CMAKE_ANNOTATE_TYPE} INDEX)
+    if(NOT INDEX GREATER -1)
+        message(FATAL_ERROR "CMAKE_ANNOTATE_TYPE is set to ${CMAKE_ANNOTATE_TYPE} which is an invalid option.")
+    endif()
+    if( "${ROI_INSTALLATION_PATH}notset" STREQUAL "notset")
+        message("ROI_INSTALLATION_PATH not defined. Defaulting to ${PROJECT_SOURCE_DIR}/../../roi")
+        set( ROI_INSTALLATION_PATH "${PROJECT_SOURCE_DIR}/../../roi")
+    endif()
+
+    #-------------------------------------------------------------------------#
+    # Checking common files in roi exist.
+    if(NOT EXISTS "${ROI_INSTALLATION_PATH}")
+            message(FATAL_ERROR "${ROI_INSTALLATION_PATH} does not exist")
+    endif()
+    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/include/")
+        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/include does not exist")
+    endif()
+    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/include/roi.h")
+        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/include/roi.h does not exist")
+    endif()
+    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/lib")
+        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/lib does not exist.")
+    endif()
+    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.a")
+        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.a does not exist")
+    endif()
+    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.so")
+        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.so does not exist")
+    endif()
+
+    set( ROI_BASE_CXX_FLAGS "-DANNOTATE -I${ROI_INSTALLATION_PATH}/include")
+    set( ROI_BASE_LINK_FLAGS "-L${ROI_INSTALLATION_PATH}/lib")
+
+    if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "papi")
+        if("${PAPI_INSTALLATION_PATH}notset" STREQUAL "notset")
+            message("PAPI_INSTALLATION_PATH not set.")
+            # Don't know if PAPI provides FindPAPI.cmake or PAPIConfig.cmake.
+            find_package(PAPI QUIET)
+            if(NOT PAPI_FOUND)
+                message("PAPI not found system-wide. Defaulting to ${ROI_INSTALLATION_PATH}/papi/install")
+                set( PAPI_INSTALLATION_PATH "${ROI_INSTALLATION_PATH}/papi/install")
+            endif()
+        endif()
+        if(NOT EXISTS "${PAPI_INSTALLATION_PATH}")
+            message(FATAL_ERROR "${PAPI_INSTALLATION_PATH} does not exist.")
+        endif()
+        if(NOT EXISTS "${PAPI_INSTALLATION_PATH}/include")
+            message(FATAL_ERROR "${PAPI_INSTALLATION_PATH}/include does not exist.")
+        endif()
+        if(NOT EXISTS "${PAPI_INSTALLATION_PATH}/lib")
+            message(FATAL_ERROR "${PAPI_INSTALLATION_PATH}/lib does not exist.")
+        endif()
+        if(NOT EXISTS "${PAPI_INSTALLATION_PATH}/lib/libpapi.a")
+            message(FATAL_ERROR "${PAPI_INSTALLATION_PATH}/libpapi.a does not exist.")
+        endif()
+        if(NOT EXISTS "${PAPI_INSTALLATION_PATH}/lib/libpapi.so")
+            message(FATAL_ERROR "${PAPI_INSTALLATION_PATH}/libpapi.so does not exist.")
+        endif()
+        find_package(Threads REQUIRED)
+        set( ROI_TYPE_CXX_FLAGS "-I${PAPI_INSTALLATION_PATH}/include")
+        set( ROI_TYPE_LINK_FLAGS "-L${PAPI_INSTALLATION_PATH}/lib -lroi.papi -lpapi -lpthread")
+    endif()
+
+    if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "gem5")
+        if("${GEM5_INSTALLATION_PATH}notset" STREQUAL "notset")
+            message("GEM5_INSTALLATION_PATH not set.")
+            message("Defaulting to ${ROI_INSTALLATION_PATH}/gem5")
+            set( PAPI_INSTALLATION_PATH "${ROI_INSTALLATION_PATH}/papi/install")
+        endif()
+        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}")
+            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH} does not exist.")
+        endif()
+        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/include")
+            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/include does not exist.")
+        endif()
+        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/lib")
+            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/lib does not exist.")
+        endif()
+        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/lib/libm5.a")
+            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/libm5.a does not exist.")
+        endif()
+        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/lib/m5")
+            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/m5 does not exist.")
+        endif()
+        find_package(Threads REQUIRED)
+        set( ROI_TYPE_CXX_FLAGS "-I${GEM5_INSTALLATION_PATH}/include")
+        set( ROI_TYPE_LINK_FLAGS "-L${GEM5_INSTALLATION_PATH}/lib -lroi.gem5 -lm5")
+    endif()
+
+    set( ROI_CXX_FLAGS "${ROI_BASE_CXX_FLAGS} ${ROI_TYPE_CXX_FLAGS}")
+    #set( ROI_CXX_FLAGS "${ROI_BASE_CXX_FLAGS} ${ROI_TYPE_CXX_FLAGS} ${ROI_BASE_LINK_FLAGS} ${ROI_TYPE_LINK_FLAGS}")
+    #set( ROI_LINK_FLAGS "${ROI_BASE_LINK_FLAGS} ${ROI_TYPE_LINK_FLAGS}")
+endif()
+
 # GCC options for address or undefined sanitizing
 #set(GCC_SANITIZE_COMPILE_FLAGS "-fsanitize=address")
 #set(GCC_SANITIZE_LINK_FLAGS "-fsanitize=address")
@@ -93,23 +196,30 @@ endif ()
 
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
-  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 ${ROI_CXX_FLAGS}")
   #set( CMAKE_CXX_FLAGS_RELEASE "-march=native  -O3 -funroll-loops -fno-var-tracking-assignments")
-  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -funroll-loops -fno-var-tracking-assignments")
+  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -funroll-loops -fno-var-tracking-assignments ${ROI_CXX_FLAGS}")
   # optionally add sanitize flags
   #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_COMPILE_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS_DEBUG "${ROI_LINK_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${ROI_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
-  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 ${ROI_CXX_FLAGS}")
   # note that the "fp-model=precise" flag significantly limite vectorization and slows down
   # branson but it makes it the hardware counter data match Jayenne more closely (Jayenne uses
   # this flag)
-  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align")
+  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align ${ROI_CXX_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS_DEBUG "${ROI_LINK_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${ROI_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
-  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0")
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0")
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ROI_CXX_FLAGS}")
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ROI_CXX_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS_DEBUG "${ROI_LINK_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${ROI_LINK_FLAGS}")
 endif()
-
 
 #------------------------------------------------------------------------------#
 # Look for Third Party Libraries (metis, etc.)
