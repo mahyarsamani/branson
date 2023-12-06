@@ -124,8 +124,9 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
         message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.so does not exist")
     endif()
 
-    set( ROI_BASE_CXX_FLAGS "-DANNOTATE -I${ROI_INSTALLATION_PATH}/include")
-    set( ROI_BASE_LINK_FLAGS "-L${ROI_INSTALLATION_PATH}/lib")
+    set( ROI_CXX_FLAGS "-DANNOTATE")
+    set( ROI_BASE_INC ${ROI_INSTALLATION_PATH}/include)
+    set( ROI_BASE_LIB_DIR ${ROI_INSTALLATION_PATH}/lib)
 
     if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "papi")
         if("${PAPI_INSTALLATION_PATH}notset" STREQUAL "notset")
@@ -153,8 +154,9 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
             message(FATAL_ERROR "${PAPI_INSTALLATION_PATH}/libpapi.so does not exist.")
         endif()
         find_package(Threads REQUIRED)
-        set( ROI_TYPE_CXX_FLAGS "-I${PAPI_INSTALLATION_PATH}/include")
-        set( ROI_TYPE_LINK_FLAGS "-L${PAPI_INSTALLATION_PATH}/lib -lroi.papi -lpapi -lpthread")
+        set( ROI_TYPE_INC ${PAPI_INSTALLATION_PATH}/include)
+        set( ROI_TYPE_LIB_DIR ${PAPI_INSTALLATION_PATH}/lib)
+        set( ROI_LIB_OBJS roi.papi papi pthread)
     endif()
 
     if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "gem5")
@@ -179,13 +181,10 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
             message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/m5 does not exist.")
         endif()
         find_package(Threads REQUIRED)
-        set( ROI_TYPE_CXX_FLAGS "-I${GEM5_INSTALLATION_PATH}/include")
-        set( ROI_TYPE_LINK_FLAGS "-L${GEM5_INSTALLATION_PATH}/lib -lroi.gem5 -lm5")
+        set( ROI_TYPE_INC ${GEM5_INSTALLATION_PATH}/include)
+        set( ROI_TYPE_LIB_DIR ${GEM5_INSTALLATION_PATH}/lib)
+        set( ROI_LIB_OBJS roi.gem5 m5)
     endif()
-
-    set( ROI_CXX_FLAGS "${ROI_BASE_CXX_FLAGS} ${ROI_TYPE_CXX_FLAGS}")
-    #set( ROI_CXX_FLAGS "${ROI_BASE_CXX_FLAGS} ${ROI_TYPE_CXX_FLAGS} ${ROI_BASE_LINK_FLAGS} ${ROI_TYPE_LINK_FLAGS}")
-    #set( ROI_LINK_FLAGS "${ROI_BASE_LINK_FLAGS} ${ROI_TYPE_LINK_FLAGS}")
 endif()
 
 # GCC options for address or undefined sanitizing
@@ -202,8 +201,6 @@ if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   # optionally add sanitize flags
   #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_COMPILE_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
-  #set( CMAKE_EXE_LINKER_FLAGS_DEBUG "${ROI_LINK_FLAGS}")
-  #set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${ROI_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 ${ROI_CXX_FLAGS}")
   # note that the "fp-model=precise" flag significantly limite vectorization and slows down
@@ -211,14 +208,10 @@ elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   # this flag)
   set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align ${ROI_CXX_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
-  #set( CMAKE_EXE_LINKER_FLAGS_DEBUG "${ROI_LINK_FLAGS}")
-  #set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${ROI_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
   set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ROI_CXX_FLAGS}")
   set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ROI_CXX_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
-  #set( CMAKE_EXE_LINKER_FLAGS_DEBUG "${ROI_LINK_FLAGS}")
-  #set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${ROI_LINK_FLAGS}")
 endif()
 
 #------------------------------------------------------------------------------#
@@ -275,7 +268,8 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 file(GLOB headers *.h)
 add_executable(BRANSON main.cc ${headers})
 target_include_directories( BRANSON PRIVATE
-  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/)
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/
+  ${ROI_BASE_INC} ${ROI_TYPE_INC})
 set( branson_deps
   MPI::MPI_CXX
   MPI::MPI_C
@@ -304,6 +298,8 @@ if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
 endif()
 
 target_link_libraries( BRANSON PUBLIC ${branson_deps} )
+target_link_directories( BRANSON PRIVATE ${ROI_BASE_LIB_DIR} ${ROI_TYPE_LIB_DIR})
+target_link_libraries( BRANSON PRIVATE ${ROI_LIB_OBJS})
 
 #------------------------------------------------------------------------------#
 # Testing

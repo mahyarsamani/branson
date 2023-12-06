@@ -28,7 +28,9 @@
 #include "timer.h"
 
 #ifdef ANNOTATE
+extern "C" {
 #include "roi.h"
+}
 #endif // ANNOTATE
 
 using Constants::PARTICLE_PASS;
