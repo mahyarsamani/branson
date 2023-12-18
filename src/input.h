@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string>
 #include <unordered_map>
+#include <cstdint>
 
 #include "config.h"
 #include "constants.h"
