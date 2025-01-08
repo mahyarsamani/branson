@@ -9,7 +9,7 @@
 # Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
 # Release
 
-# To enable ROI annotations pass -DCMAKE_ANNOTATE_TYPE=[papi|gem5] to CMake.
+# To enable annotations pass -DCMAKE_ANNOTATE_TYPE=[papi|gem5] to CMake.
 
 
 cmake_minimum_required (VERSION 3.11)
@@ -91,42 +91,42 @@ endif ()
 #------------------------------------------------------------------------------#
 # Initializing annotation variables
 
-set(VALID_ROI_OPTIONS "papi" "gem5fs")
+set(VALID_ANNOTATE_OPTIONS "papi" "gem5fs")
 
 if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
-    list(FIND VALID_ROI_OPTIONS ${CMAKE_ANNOTATE_TYPE} INDEX)
+    list(FIND VALID_ANNOTATE_OPTIONS ${CMAKE_ANNOTATE_TYPE} INDEX)
     if(NOT INDEX GREATER -1)
         message(FATAL_ERROR "CMAKE_ANNOTATE_TYPE is set to ${CMAKE_ANNOTATE_TYPE} which is an invalid option.")
     endif()
-    if( "${ROI_INSTALLATION_PATH}notset" STREQUAL "notset")
-        message("ROI_INSTALLATION_PATH not defined. Defaulting to ${PROJECT_SOURCE_DIR}/../../roi")
-        set( ROI_INSTALLATION_PATH "${PROJECT_SOURCE_DIR}/../../roi")
+    if( "${ANNOTATE_INSTALLATION_PATH}notset" STREQUAL "notset")
+        message("ANNOTATE_INSTALLATION_PATH not defined. Defaulting to ${PROJECT_SOURCE_DIR}/../../annotate")
+        set( ANNOTATE_INSTALLATION_PATH "${PROJECT_SOURCE_DIR}/../../annotate")
     endif()
 
     #-------------------------------------------------------------------------#
-    # Checking common files in roi exist.
-    if(NOT EXISTS "${ROI_INSTALLATION_PATH}")
-            message(FATAL_ERROR "${ROI_INSTALLATION_PATH} does not exist")
+    # Checking common files in annotate exist.
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}")
+            message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH} does not exist")
     endif()
-    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/include/")
-        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/include does not exist")
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/include/")
+        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/include does not exist")
     endif()
-    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/include/roi.h")
-        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/include/roi.h does not exist")
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/include/annotate.h")
+        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/include/annotate.h does not exist")
     endif()
-    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/lib")
-        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/lib does not exist.")
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib")
+        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib does not exist.")
     endif()
-    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.a")
-        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.a does not exist")
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.a")
+        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.a does not exist")
     endif()
-    if(NOT EXISTS "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.so")
-        message(FATAL_ERROR "${ROI_INSTALLATION_PATH}/lib/libroi.${CMAKE_ANNOTATE_TYPE}.so does not exist")
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.so")
+        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.so does not exist")
     endif()
 
-    set( ROI_CXX_FLAGS "-DANNOTATE")
-    set( ROI_BASE_INC ${ROI_INSTALLATION_PATH}/include)
-    set( ROI_BASE_LIB_DIR ${ROI_INSTALLATION_PATH}/lib)
+    set( ANNOTATE_CXX_FLAGS "-DANNOTATE")
+    set( ANNOTATE_BASE_INC ${ANNOTATE_INSTALLATION_PATH}/include)
+    set( ANNOTATE_BASE_LIB_DIR ${ANNOTATE_INSTALLATION_PATH}/lib)
 
     if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "papi")
         if("${PAPI_INSTALLATION_PATH}notset" STREQUAL "notset")
@@ -134,8 +134,8 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
             # Don't know if PAPI provides FindPAPI.cmake or PAPIConfig.cmake.
             find_package(PAPI QUIET)
             if(NOT PAPI_FOUND)
-                message("PAPI not found system-wide. Defaulting to ${ROI_INSTALLATION_PATH}/papi/install")
-                set( PAPI_INSTALLATION_PATH "${ROI_INSTALLATION_PATH}/papi/install")
+                message("PAPI not found system-wide. Defaulting to ${ANNOTATE_INSTALLATION_PATH}/papi/install")
+                set( PAPI_INSTALLATION_PATH "${ANNOTATE_INSTALLATION_PATH}/papi/install")
             endif()
         endif()
         if(NOT EXISTS "${PAPI_INSTALLATION_PATH}")
@@ -154,16 +154,16 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
             message(FATAL_ERROR "${PAPI_INSTALLATION_PATH}/libpapi.so does not exist.")
         endif()
         find_package(Threads REQUIRED)
-        set( ROI_TYPE_INC ${PAPI_INSTALLATION_PATH}/include)
-        set( ROI_TYPE_LIB_DIR ${PAPI_INSTALLATION_PATH}/lib)
-        set( ROI_LIB_OBJS roi.papi papi pthread)
+        set( ANNOTATE_TYPE_INC ${PAPI_INSTALLATION_PATH}/include)
+        set( ANNOTATE_TYPE_LIB_DIR ${PAPI_INSTALLATION_PATH}/lib)
+        set( ANNOTATE_LIB_OBJS annotate.papi papi pthread)
     endif()
 
     if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "gem5fs")
         if("${GEM5_INSTALLATION_PATH}notset" STREQUAL "notset")
             message("GEM5_INSTALLATION_PATH not set.")
-            message("Defaulting to ${ROI_INSTALLATION_PATH}/gem5")
-            set( GEM5_INSTALLATION_PATH "${ROI_INSTALLATION_PATH}/gem5")
+            message("Defaulting to ${ANNOTATE_INSTALLATION_PATH}/gem5")
+            set( GEM5_INSTALLATION_PATH "${ANNOTATE_INSTALLATION_PATH}/gem5")
         endif()
         if(NOT EXISTS "${GEM5_INSTALLATION_PATH}")
             message(FATAL_ERROR "${GEM5_INSTALLATION_PATH} does not exist.")
@@ -177,9 +177,9 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
         if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/lib/libm5.a")
             message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/libm5.a does not exist.")
         endif()
-        set( ROI_TYPE_INC ${GEM5_INSTALLATION_PATH}/include)
-        set( ROI_TYPE_LIB_DIR ${GEM5_INSTALLATION_PATH}/lib)
-        set( ROI_LIB_OBJS roi.gem5fs m5)
+        set( ANNOTATE_TYPE_INC ${GEM5_INSTALLATION_PATH}/include)
+        set( ANNOTATE_TYPE_LIB_DIR ${GEM5_INSTALLATION_PATH}/lib)
+        set( ANNOTATE_LIB_OBJS annotate.gem5fs m5)
     endif()
 endif()
 
@@ -191,22 +191,22 @@ endif()
 
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
-  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 ${ROI_CXX_FLAGS}")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 ${ANNOTATE_CXX_FLAGS}")
   #set( CMAKE_CXX_FLAGS_RELEASE "-march=native  -O3 -funroll-loops -fno-var-tracking-assignments")
-  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -funroll-loops -fno-var-tracking-assignments ${ROI_CXX_FLAGS}")
+  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -funroll-loops -fno-var-tracking-assignments ${ANNOTATE_CXX_FLAGS}")
   # optionally add sanitize flags
   #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_COMPILE_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
-  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 ${ROI_CXX_FLAGS}")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 ${ANNOTATE_CXX_FLAGS}")
   # note that the "fp-model=precise" flag significantly limite vectorization and slows down
   # branson but it makes it the hardware counter data match Jayenne more closely (Jayenne uses
   # this flag)
-  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align ${ROI_CXX_FLAGS}")
+  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align ${ANNOTATE_CXX_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
-  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ROI_CXX_FLAGS}")
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ROI_CXX_FLAGS}")
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ANNOTATE_CXX_FLAGS}")
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0 ${ANNOTATE_CXX_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
 endif()
 
@@ -265,7 +265,7 @@ file(GLOB headers *.h)
 add_executable(BRANSON main.cc ${headers})
 target_include_directories( BRANSON PRIVATE
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/
-  ${ROI_BASE_INC} ${ROI_TYPE_INC})
+  ${ANNOTATE_BASE_INC} ${ANNOTATE_TYPE_INC})
 set( branson_deps
   MPI::MPI_CXX
   MPI::MPI_C
@@ -294,8 +294,8 @@ if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
 endif()
 
 target_link_libraries( BRANSON PUBLIC ${branson_deps} )
-target_link_directories( BRANSON PRIVATE ${ROI_BASE_LIB_DIR} ${ROI_TYPE_LIB_DIR})
-target_link_libraries( BRANSON PRIVATE ${ROI_LIB_OBJS})
+target_link_directories( BRANSON PRIVATE ${ANNOTATE_BASE_LIB_DIR} ${ANNOTATE_TYPE_LIB_DIR})
+target_link_libraries( BRANSON PRIVATE ${ANNOTATE_LIB_OBJS})
 
 #------------------------------------------------------------------------------#
 # Testing
