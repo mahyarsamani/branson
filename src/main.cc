@@ -49,6 +49,10 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
+#ifdef ANNOTATE
+    annotate_init_();
+#endif // ANNOTATE
+
   // wrap main loop scope so objcts are destroyed before mpi_finalize is called
   {
     // get MPI parmeters and set them in mpi_info
@@ -84,9 +88,6 @@ int main(int argc, char **argv) {
 
     // timing
     Timer timers;
-#ifdef ANNOTATE
-    annotate_init_();
-#endif // ANNOTATE
 
     // make mesh from input object
     timers.start_timer("Total setup");
@@ -147,7 +148,11 @@ int main(int argc, char **argv) {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  MPI_Finalize();
+#ifdef ANNOTATE
+    annotate_term_();
+#endif // ANNOTATE
+
+    MPI_Finalize();
 }
 //---------------------------------------------------------------------------//
 // end of main.cc
