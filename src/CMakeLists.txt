@@ -181,6 +181,10 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
         set( ANNOTATE_TYPE_LIB_DIR ${GEM5_INSTALLATION_PATH}/lib)
         set( ANNOTATE_LIB_OBJS annotate.gem5fs m5)
     endif()
+
+    if("${SYNC_ANNOTATE}" STREQUAL "true")
+        set( ANNOTATE_CXX_FLAGS "${ANNOTATE_CXX_FLAGS} -DSYNC_ON_ROI")
+    endif()
 endif()
 
 # GCC options for address or undefined sanitizing

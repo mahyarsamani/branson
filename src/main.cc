@@ -118,6 +118,9 @@ int main(int argc, char **argv) {
     timers.start_timer("Total non-setup");
 #ifdef ANNOTATE
     roi_begin_();
+#ifdef SYNC_ON_ROI
+    annotate_synchronize_(1);
+#endif // SYNC_ON_ROI
 #endif // ANNOTATE
 
     if (input.get_dd_mode() == PARTICLE_PASS)
@@ -131,6 +134,9 @@ int main(int argc, char **argv) {
 
 #ifdef ANNOTATE
     roi_end_();
+#ifdef SYNC_ON_ROI
+    annotate_synchronize_(2);
+#endif // SYNC_ON_ROI
 #endif // ANNOTATE
     timers.stop_timer("Total non-setup");
 

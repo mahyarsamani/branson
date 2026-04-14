@@ -68,6 +68,8 @@ void transport_photon(const uint32_t rank_cell_offset,
 
   // transport this photon
   while (active) {
+    // NOTE: phtn.get_group is equivalent to getting the value of its index.
+    // get_op_s and get_op_a getting scatter and absorption values.
     const double sigma_s = cell->get_op_s(phtn.get_group());
     const double sigma_a = cell->get_op_a(phtn.get_group());
     const double f = cell->get_f();
@@ -79,6 +81,7 @@ void transport_photon(const uint32_t rank_cell_offset,
 
     const double dist_to_boundary = cell->get_distance_to_boundary(
         phtn.get_position(), phtn.get_angle(), surface_cross);
+    // NOTE: This is getting another value from the photon.
     const double dist_to_census = phtn.get_distance_remaining();
 
     // select minimum distance event
@@ -88,6 +91,7 @@ void transport_photon(const uint32_t rank_cell_offset,
     // and update the path-length weighted tally for T_r
     const double absorbed_E = phtn.get_E() * (1.0 - exp(-sigma_a * f * dist_to_event));
 
+    // MYSTUFF NOTE:This is indirect
     cell_tallies[local_cell_index].accumulate_absorbed_E(absorbed_E);
     cell_tallies[local_cell_index].accumulate_track_E(absorbed_E / (sigma_a * f));
 
@@ -118,6 +122,7 @@ void transport_photon(const uint32_t rank_cell_offset,
           // update photon's cell index
           phtn.set_cell(cell->get_next_cell(surface_cross));
           local_cell_index =  phtn.get_cell() - rank_cell_offset;
+          // MYSTUFF NOTE: There is indirection here.
           cell = &cells[local_cell_index]; // note: only for on rank mesh data
           phtn.set_descriptor(Constants::BOUND);
         } else if (boundary_event == Constants::PROCESSOR) {
@@ -160,6 +165,8 @@ void gpu_no_accel_transport(const uint32_t rank_cell_offset,
 //------------------------------------------------------------------------------------------------//
 
 //------------------------------------------------------------------------------------------------//
+// MYSTUFF NOTE: Theses three structures are the main ones in the code, photons, cells, cell_tallies.
+// photons is both read and write, cells is read only, and cell_tallies is read and write only.
 void cpu_transport_photons(const uint32_t rank_cell_offset,
     std::vector<Photon> &photons, const std::vector<Cell> &cells, std::vector<Cell_Tally> &cell_tallies, int n_omp_threads) {
 
