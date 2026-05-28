@@ -266,7 +266,7 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 #------------------------------------------------------------------------------#
 # Targets
 file(GLOB headers *.h)
-add_executable(BRANSON main.cc ${headers})
+add_executable(BRANSON main.cc hov_setup.cc ${headers})
 target_include_directories( BRANSON PRIVATE
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/
   ${ANNOTATE_BASE_INC} ${ANNOTATE_TYPE_INC})

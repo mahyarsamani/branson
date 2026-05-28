@@ -22,6 +22,9 @@
 #include <vector>
 
 #include "transport_photon.h"
+#ifdef HOV
+#include "transport_photon_hov.h"
+#endif
 #include "gpu_setup.h"
 #include "buffer.h"
 #include "constants.h"
@@ -139,8 +142,13 @@ std::vector<Photon> particle_pass_transport(
   if(gpu_setup.use_gpu_transporter() && gpu_available) {
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
   }
-  else
+  else {
+#ifdef HOV
+    cpu_transport_photons_hov(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
+#else
     cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
+#endif
+  }
 
   for (auto &phtn : all_photons) {
     switch (phtn.get_descriptor()) {
@@ -233,7 +241,11 @@ std::vector<Photon> particle_pass_transport(
       if(gpu_setup.use_gpu_transporter() && gpu_available)
         gpu_transport_photons(rank_cell_offset, phtn_recv_list, gpu_setup.get_device_cells_ptr(), cell_tallies);
       else {
+#ifdef HOV
+        cpu_transport_photons_hov(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies, n_omp_threads);
+#else
         cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies, n_omp_threads);
+#endif
       }
 
       for (auto &phtn : phtn_recv_list) {
@@ -321,10 +333,14 @@ std::vector<Photon> particle_pass_transport(
   delete[] phtn_send_request;
 
   // copy cell tallies back out to rank_abs_E and rank_track_E
+#ifdef HOV
+  collect_tally_soa(rank_abs_E, rank_track_E);
+#else
   for (size_t i = 0; i<cell_tallies.size();++i) {
-    rank_abs_E[i] = cell_tallies[i].get_abs_E();
-    rank_track_E[i] = cell_tallies[i].get_track_E();
+    rank_abs_E[i] += cell_tallies[i].get_abs_E();
+    rank_track_E[i] += cell_tallies[i].get_track_E();
   }
+#endif
 
   // set diagnostic quantities
   imc_state.set_exit_E(exit_E);
