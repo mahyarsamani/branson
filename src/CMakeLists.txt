@@ -9,7 +9,7 @@
 # Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
 # Release
 
-# To enable annotations pass -DCMAKE_ANNOTATE_TYPE=[papi|gem5] to CMake.
+# To enable annotations pass -DANNOTATE_TOOL=[papi|gem5fs] to CMake.
 
 
 cmake_minimum_required (VERSION 3.11)
@@ -93,14 +93,16 @@ endif ()
 
 set(VALID_ANNOTATE_OPTIONS "papi" "gem5fs")
 
-if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
-    list(FIND VALID_ANNOTATE_OPTIONS ${CMAKE_ANNOTATE_TYPE} INDEX)
+if(NOT "${ANNOTATE_TOOL}notset" STREQUAL "notset")
+    list(FIND VALID_ANNOTATE_OPTIONS ${ANNOTATE_TOOL} INDEX)
     if(NOT INDEX GREATER -1)
-        message(FATAL_ERROR "CMAKE_ANNOTATE_TYPE is set to ${CMAKE_ANNOTATE_TYPE} which is an invalid option.")
+        message(FATAL_ERROR "ANNOTATE_TOOL is set to ${ANNOTATE_TOOL} which is an invalid option.")
     endif()
+    get_filename_component(WORKDIR "${PROJECT_SOURCE_DIR}/../.." ABSOLUTE)
+
     if( "${ANNOTATE_INSTALLATION_PATH}notset" STREQUAL "notset")
-        message("ANNOTATE_INSTALLATION_PATH not defined. Defaulting to ${PROJECT_SOURCE_DIR}/../../annotate")
-        set( ANNOTATE_INSTALLATION_PATH "${PROJECT_SOURCE_DIR}/../../annotate")
+        message("ANNOTATE_INSTALLATION_PATH not defined. Defaulting to ${WORKDIR}/annotate")
+        set( ANNOTATE_INSTALLATION_PATH "${WORKDIR}/annotate")
     endif()
 
     #-------------------------------------------------------------------------#
@@ -117,18 +119,18 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
     if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib")
         message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib does not exist.")
     endif()
-    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.a")
-        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.a does not exist")
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${ANNOTATE_TOOL}.a")
+        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${ANNOTATE_TOOL}.a does not exist")
     endif()
-    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.so")
-        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${CMAKE_ANNOTATE_TYPE}.so does not exist")
+    if(NOT EXISTS "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${ANNOTATE_TOOL}.so")
+        message(FATAL_ERROR "${ANNOTATE_INSTALLATION_PATH}/lib/libannotate.${ANNOTATE_TOOL}.so does not exist")
     endif()
 
     set( ANNOTATE_CXX_FLAGS "-DANNOTATE")
     set( ANNOTATE_BASE_INC ${ANNOTATE_INSTALLATION_PATH}/include)
     set( ANNOTATE_BASE_LIB_DIR ${ANNOTATE_INSTALLATION_PATH}/lib)
 
-    if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "papi")
+    if( ${ANNOTATE_TOOL} STREQUAL "papi")
         if("${PAPI_INSTALLATION_PATH}notset" STREQUAL "notset")
             message("PAPI_INSTALLATION_PATH not set.")
             # Don't know if PAPI provides FindPAPI.cmake or PAPIConfig.cmake.
@@ -159,30 +161,11 @@ if(NOT "${CMAKE_ANNOTATE_TYPE}notset" STREQUAL "notset")
         set( ANNOTATE_LIB_OBJS annotate.papi papi pthread)
     endif()
 
-    if( ${CMAKE_ANNOTATE_TYPE} STREQUAL "gem5fs")
-        if("${GEM5_INSTALLATION_PATH}notset" STREQUAL "notset")
-            message("GEM5_INSTALLATION_PATH not set.")
-            message("Defaulting to ${ANNOTATE_INSTALLATION_PATH}/gem5")
-            set( GEM5_INSTALLATION_PATH "${ANNOTATE_INSTALLATION_PATH}/gem5")
-        endif()
-        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}")
-            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH} does not exist.")
-        endif()
-        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/include")
-            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/include does not exist.")
-        endif()
-        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/lib")
-            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/lib does not exist.")
-        endif()
-        if(NOT EXISTS "${GEM5_INSTALLATION_PATH}/lib/libm5.a")
-            message(FATAL_ERROR "${GEM5_INSTALLATION_PATH}/libm5.a does not exist.")
-        endif()
-        set( ANNOTATE_TYPE_INC ${GEM5_INSTALLATION_PATH}/include)
-        set( ANNOTATE_TYPE_LIB_DIR ${GEM5_INSTALLATION_PATH}/lib)
+    if( ${ANNOTATE_TOOL} STREQUAL "gem5fs")
         set( ANNOTATE_LIB_OBJS annotate.gem5fs m5)
     endif()
 
-    if("${SYNC_ANNOTATE}" STREQUAL "true")
+    if("${ROI_TYPE}" STREQUAL "sync")
         set( ANNOTATE_CXX_FLAGS "${ANNOTATE_CXX_FLAGS} -DSYNC_ON_ROI")
     endif()
 endif()
@@ -251,6 +234,7 @@ else()
   string( TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER )
   message( STATUS "Compiler Flags  : ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
 endif()
+message( STATUS "Linker Flags    : ${CMAKE_EXE_LINKER_FLAGS}")
 message("\n")
 
 #------------------------------------------------------------------------------#
@@ -274,6 +258,16 @@ set( branson_deps
   MPI::MPI_CXX
   MPI::MPI_C
   pugixml)
+
+if(HOV)
+  add_library(hov_lib STATIC IMPORTED)
+  set_target_properties(hov_lib PROPERTIES
+    IMPORTED_LOCATION "${WORKDIR}/hov/lib/libhov.a"
+  )
+  target_compile_definitions(BRANSON PRIVATE HOV)
+  target_include_directories(BRANSON PRIVATE ${WORKDIR}/hov/include)
+  set(branson_deps "${branson_deps};hov_lib")
+endif()
 
 if(OpenMP_FOUND)
   set(branson_deps "OpenMP::OpenMP_CXX;${branson_deps}")

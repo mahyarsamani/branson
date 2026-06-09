@@ -162,6 +162,12 @@ public:
 
   void set_rng(const RNG &rng) { m_rng = rng;}
 
+  GPU_HOST_DEVICE
+  bool is_active() const {
+    auto d = static_cast<Constants::event_type>(descriptors[0]);
+    return d != Constants::CENSUS && d != Constants::EXIT && d != Constants::KILLED && d != Constants::PASS;
+  }
+
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
