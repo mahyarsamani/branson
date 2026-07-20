@@ -124,6 +124,12 @@ int main(int argc, char **argv) {
 #ifdef HOV
     unpack_cells_soa(mesh.get_cells(), input.get_batch_size() + input.get_particle_message_size());
     setup_tally_pairs(mesh.get_n_local_cells(), input.get_batch_size() + input.get_particle_message_size());
+    /* Synchronize all ranks, then have rank 0 freeze the shared region.
+     * Other ranks' arenas are initialized lazily on first allocation. */
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (mpi_info.get_rank() == 0)
+      hov_init_arenas(0);
+    MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
     if (input.get_dd_mode() == PARTICLE_PASS)
