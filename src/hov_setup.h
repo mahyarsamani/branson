@@ -6,42 +6,40 @@
 #include "cell_tally.h"
 
 #ifdef HOV
-
-#include "hov_allocator.h"
-
-template <class T>
-using hov_vector = std::vector<T, HovAllocator<T>>;
+extern "C" {
+#include "hov.h"
+}
 
 struct BransonHOVData {
-    hov_vector<double> f_soa;
-    hov_vector<double> node_0_soa;
-    hov_vector<double> node_1_soa;
-    hov_vector<double> node_2_soa;
-    hov_vector<double> node_3_soa;
-    hov_vector<double> node_4_soa;
-    hov_vector<double> node_5_soa;
+    std::vector<double> f_soa;
+    std::vector<double> node_0_soa;
+    std::vector<double> node_1_soa;
+    std::vector<double> node_2_soa;
+    std::vector<double> node_3_soa;
+    std::vector<double> node_4_soa;
+    std::vector<double> node_5_soa;
+    
+    std::vector<uint32_t> bc_0_soa;
+    std::vector<uint32_t> bc_1_soa;
+    std::vector<uint32_t> bc_2_soa;
+    std::vector<uint32_t> bc_3_soa;
+    std::vector<uint32_t> bc_4_soa;
+    std::vector<uint32_t> bc_5_soa;
 
-    hov_vector<uint32_t> bc_0_soa;
-    hov_vector<uint32_t> bc_1_soa;
-    hov_vector<uint32_t> bc_2_soa;
-    hov_vector<uint32_t> bc_3_soa;
-    hov_vector<uint32_t> bc_4_soa;
-    hov_vector<uint32_t> bc_5_soa;
+    std::vector<uint32_t> e_next_0_soa;
+    std::vector<uint32_t> e_next_1_soa;
+    std::vector<uint32_t> e_next_2_soa;
+    std::vector<uint32_t> e_next_3_soa;
+    std::vector<uint32_t> e_next_4_soa;
+    std::vector<uint32_t> e_next_5_soa;
 
-    hov_vector<uint32_t> e_next_0_soa;
-    hov_vector<uint32_t> e_next_1_soa;
-    hov_vector<uint32_t> e_next_2_soa;
-    hov_vector<uint32_t> e_next_3_soa;
-    hov_vector<uint32_t> e_next_4_soa;
-    hov_vector<uint32_t> e_next_5_soa;
+    std::vector<double> op_a_soa[BRANSON_N_GROUPS];
+    std::vector<double> op_s_soa[BRANSON_N_GROUPS];
 
-    hov_vector<double> op_a_soa[BRANSON_N_GROUPS];
-    hov_vector<double> op_s_soa[BRANSON_N_GROUPS];
+    std::vector<double> tally_abs_E_soa;
+    std::vector<double> tally_track_E_soa;
 
-    hov_vector<double> tally_abs_E_soa;
-    hov_vector<double> tally_track_E_soa;
-
-    hov_vector<uint32_t> phtn_cells_idx;
+    std::vector<uint32_t> phtn_cells_idx;
 
     hov_pair_t pair_f;
     hov_pair_t pair_node_0;
