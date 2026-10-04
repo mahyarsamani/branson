@@ -45,7 +45,7 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
         }
 
         // Phase B: Physics step (ROI)
-#if defined(ANNOTATE)
+#if defined(ANNOTATE) && defined(ROI_BRANSON)
         roi_begin_();
 #ifdef SYNC_ON_ROI
         annotate_synchronize_(1);
@@ -75,7 +75,7 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
             hov_gather_f64_u32(&res_n4, &g_hov_data.pair_node_4, i);
             hov_gather_f64_u32(&res_n5, &g_hov_data.pair_node_5, i);
 
-            double nodes[6] = {res_n0.data_val, res_n1.data_val, res_n2.data_val,
+            double nodes[6] = {res_n0.data_val, res_n1.data_val, res_n2.data_val, 
                                res_n3.data_val, res_n4.data_val, res_n5.data_val};
 
             double total_sigma_s = (1.0 - f) * sigma_a + sigma_s;
@@ -84,10 +84,8 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
 
             double min_dist = 1.0e16;
             uint32_t surface_cross = 0;
-            auto pos_arr = phtn.get_position();
-            const double* pos = pos_arr.data();
-            auto angle_arr = phtn.get_angle();
-            const double* angle = angle_arr.data();
+            const double* pos = phtn.get_position();
+            const double* angle = phtn.get_angle();
             for (uint32_t d = 0; d < 3; d++) {
                 uint32_t index = 2 * d + sgn_local(angle[d]);
                 double dist = (nodes[index] - pos[d]) / angle[d];
@@ -98,14 +96,14 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
             }
             double dist_to_boundary = min_dist;
             double dist_to_census = phtn.get_distance_remaining();
-
+            
             double dist_to_event = std::min(dist_to_scatter, std::min(dist_to_boundary, dist_to_census));
             double absorbed_E = phtn.get_E() * (1.0 - exp(-sigma_a * f * dist_to_event));
 
             hov_result_f64_u32_t res_abs_E, res_track_E;
             hov_gather_f64_u32(&res_abs_E, &g_hov_data.pair_abs_E, i);
             hov_gather_f64_u32(&res_track_E, &g_hov_data.pair_track_E, i);
-
+            
             hov_scatter_f64_u32(res_abs_E.data_val + absorbed_E, &g_hov_data.pair_abs_E, i);
             hov_scatter_f64_u32(res_track_E.data_val + (absorbed_E / (sigma_a * f)), &g_hov_data.pair_track_E, i);
 
@@ -158,7 +156,7 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
             }
         } // End Phase B (ROI)
 
-#if defined(ANNOTATE)
+#if defined(ANNOTATE) && defined(ROI_BRANSON)
         roi_end_();
 #ifdef SYNC_ON_ROI
         annotate_synchronize_(2);
