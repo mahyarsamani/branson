@@ -27,10 +27,6 @@
 #include "replicated_driver.h"
 #include "timer.h"
 
-#ifdef HOV
-#include "hov_setup.h"
-#endif
-
 #ifdef ANNOTATE
 extern "C" {
 #include "annotate.h"
@@ -120,11 +116,12 @@ int main(int argc, char **argv) {
     //--------------------------------------------------------------------------//
 
     timers.start_timer("Total non-setup");
-
-#ifdef HOV
-    unpack_cells_soa(mesh.get_cells(), input.get_batch_size() + input.get_particle_message_size());
-    setup_tally_pairs(mesh.get_n_local_cells(), input.get_batch_size() + input.get_particle_message_size());
-#endif
+#ifdef ANNOTATE
+    roi_begin_();
+#ifdef SYNC_ON_ROI
+    annotate_synchronize_(1);
+#endif // SYNC_ON_ROI
+#endif // ANNOTATE
 
     if (input.get_dd_mode() == PARTICLE_PASS)
       imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
@@ -135,6 +132,12 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
     }
 
+#ifdef ANNOTATE
+    roi_end_();
+#ifdef SYNC_ON_ROI
+    annotate_synchronize_(2);
+#endif // SYNC_ON_ROI
+#endif // ANNOTATE
     timers.stop_timer("Total non-setup");
 
     if (mpi_info.get_rank() == 0) {
