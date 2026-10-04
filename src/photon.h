@@ -33,7 +33,11 @@
 class Photon {
 public:
   //! Constructor
-  Photon() {}
+  // MYSTUFF
+  // Start with a defined, non-terminal descriptor (is_active() is true) and
+  // zeroed padding bytes, which MPI_Particle sends as part of descriptors.
+  Photon() : descriptors{{static_cast<unsigned char>(Constants::SCATTER), 0, 0, 0}} {}
+  // FFUTSYM
 
   //! Destructor
   ~Photon() {}

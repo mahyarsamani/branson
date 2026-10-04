@@ -77,6 +77,10 @@ extern BransonHOVData g_hov_data;
 void unpack_cells_soa(const std::vector<Cell>& cells, size_t max_photons);
 void setup_tally_pairs(size_t n_cells, size_t max_photons);
 void collect_tally_soa(std::vector<double>& rank_abs_E, std::vector<double>& rank_track_E);
+// MYSTUFF
+void refresh_cells_soa(const std::vector<Cell>& cells);
+void reset_tally_soa();
+// FFUTSYM
 
 #endif // HOV
 

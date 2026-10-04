@@ -93,12 +93,14 @@ endif ()
 
 set(VALID_ANNOTATE_OPTIONS "papi" "gem5fs")
 
+# Needed by both the annotate and HOV sections, so set it unconditionally.
+get_filename_component(WORKDIR "${PROJECT_SOURCE_DIR}/../.." ABSOLUTE)
+
 if(NOT "${ANNOTATE_TOOL}notset" STREQUAL "notset")
     list(FIND VALID_ANNOTATE_OPTIONS ${ANNOTATE_TOOL} INDEX)
     if(NOT INDEX GREATER -1)
         message(FATAL_ERROR "ANNOTATE_TOOL is set to ${ANNOTATE_TOOL} which is an invalid option.")
     endif()
-    get_filename_component(WORKDIR "${PROJECT_SOURCE_DIR}/../.." ABSOLUTE)
 
     if( "${ANNOTATE_INSTALLATION_PATH}notset" STREQUAL "notset")
         message("ANNOTATE_INSTALLATION_PATH not defined. Defaulting to ${WORKDIR}/annotate")

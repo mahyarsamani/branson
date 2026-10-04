@@ -86,6 +86,13 @@ std::vector<Photon> particle_pass_transport(
   // This flag indicates that send processing is needed for target rank
   vector<vector<Photon>> send_list;
   vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());
+  // MYSTUFF
+#ifdef HOV
+  // Same lifetime as cell_tallies: zero here, accumulate over every
+  // transport call below, add into rank_abs_E/rank_track_E at the end.
+  reset_tally_soa();
+#endif
+  // FFUTSYM
 
   // Completion count request made flag
   bool req_made = false;

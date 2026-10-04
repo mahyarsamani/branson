@@ -25,6 +25,12 @@
 #include "photon.h"
 #include "sampling_functions.h"
 
+#ifdef ANNOTATE
+extern "C" {
+#include "annotate.h"
+}
+#endif // ANNOTATE
+
 void post_process_photons(const double next_dt, std::vector<Photon> &all_photons, std::vector<Photon> &census_list, double &census_E, double &exit_E) {
   for ( auto & phtn : all_photons) {
     auto descriptor{phtn.get_descriptor()};
@@ -48,9 +54,12 @@ void post_process_photons(const double next_dt, std::vector<Photon> &all_photons
 }
 
 //----------------------------------------------------------------------------//
-//! Transport a photon when the mesh is always available
+//! Advance a photon by one event (scatter, boundary cross, census or cutoff).
+//! Returns whether the photon is still active. This is the body of the
+//! original per-photon loop; transport_photon loops on it, and
+//! cpu_transport_photons calls it once per photon per sweep.
 GPU_HOST_DEVICE
-void transport_photon(const uint32_t rank_cell_offset,
+bool transport_photon_event(const uint32_t rank_cell_offset,
     Photon &phtn, const Cell *cells, Cell_Tally *cell_tallies) {
 
   using Constants::bc_type;
@@ -66,8 +75,8 @@ void transport_photon(const uint32_t rank_cell_offset,
   Cell const * cell = &cells[local_cell_index];
   bool active = true;
 
-  // transport this photon
-  while (active) {
+  // one event of this photon
+  {
     // NOTE: phtn.get_group is equivalent to getting the value of its index.
     // get_op_s and get_op_a getting scatter and absorption values.
     const double sigma_s = cell->get_op_s(phtn.get_group());
@@ -143,8 +152,17 @@ void transport_photon(const uint32_t rank_cell_offset,
         active = false;
         phtn.set_descriptor(Constants::CENSUS);
       }
-    } // end event loop
-  } // end while alive
+    } // end event
+  } // end one event
+  return active;
+}
+
+//----------------------------------------------------------------------------//
+//! Transport a photon when the mesh is always available
+GPU_HOST_DEVICE
+void transport_photon(const uint32_t rank_cell_offset,
+    Photon &phtn, const Cell *cells, Cell_Tally *cell_tallies) {
+  while (transport_photon_event(rank_cell_offset, phtn, cells, cell_tallies)) {}
 }
 //----------------------------------------------------------------------------//
 
@@ -170,31 +188,76 @@ void gpu_no_accel_transport(const uint32_t rank_cell_offset,
 void cpu_transport_photons(const uint32_t rank_cell_offset,
     std::vector<Photon> &photons, const std::vector<Cell> &cells, std::vector<Cell_Tally> &cell_tallies, int n_omp_threads) {
 
+  // Event-based sweeps, the same algorithm as cpu_transport_photons_hov: each
+  // sweep advances every active photon by one event, and the ROI markers wrap
+  // each sweep, so ref and hov measure the same work. Each photon has its own
+  // RNG and cell data is read-only here, so every photon follows the same
+  // trajectory as in the per-photon loop (transport_photon); only the order of
+  // the tally additions changes.
   auto cpu_cells_ptr{cells.data()};
   const auto n_cells = cell_tallies.size();
+
+  // Every photon passed in is transported, as in the per-photon loop.
+  std::vector<uint32_t> active_photons(photons.size());
+  std::iota(active_photons.begin(), active_photons.end(), 0);
+  std::vector<char> still_active(photons.size());
+
 #ifdef USE_OPENMP
   // this is set earlier based on input variable
   std::vector<std::vector<Cell_Tally>> thread_tallies(n_omp_threads);
-#pragma omp parallel
-  {
-    thread_tallies[omp_get_thread_num()].resize(n_cells);
-    auto thread_tally_ptr = thread_tallies[omp_get_thread_num()].data();
-#pragma omp for schedule(guided)
-    for (int i=0; i<photons.size(); ++i) {
-      transport_photon(rank_cell_offset, photons[i], cpu_cells_ptr, thread_tally_ptr);
-    }
-  } // end parallel region
+  for (auto &thread_tally : thread_tallies)
+    thread_tally.resize(n_cells);
+#endif
 
+  while (!active_photons.empty()) {
+#if defined(ANNOTATE)
+    roi_begin_();
+#ifdef SYNC_ON_ROI
+    annotate_synchronize_(1);
+#endif // SYNC_ON_ROI
+#endif // ANNOTATE
+
+#ifdef USE_OPENMP
+#pragma omp parallel
+    {
+      auto thread_tally_ptr = thread_tallies[omp_get_thread_num()].data();
+#pragma omp for schedule(guided)
+      for (size_t i=0; i<active_photons.size(); ++i) {
+        still_active[i] = transport_photon_event(rank_cell_offset,
+            photons[active_photons[i]], cpu_cells_ptr, thread_tally_ptr);
+      }
+    } // end parallel region
+#else
+    // normal serial version
+    for (size_t i=0; i<active_photons.size(); ++i) {
+      still_active[i] = transport_photon_event(rank_cell_offset,
+          photons[active_photons[i]], cpu_cells_ptr, cell_tallies.data());
+    }
+#endif
+
+#if defined(ANNOTATE)
+    roi_end_();
+#ifdef SYNC_ON_ROI
+    annotate_synchronize_(2);
+#endif // SYNC_ON_ROI
+#endif // ANNOTATE
+
+    // Compaction, outside the ROI as in the hov kernel
+    size_t n_next = 0;
+    for (size_t i=0; i<active_photons.size(); ++i) {
+      if (still_active[i])
+        active_photons[n_next++] = active_photons[i];
+    }
+    active_photons.resize(n_next);
+  }
+
+#ifdef USE_OPENMP
   // reduce tallies if using openmp
   for(size_t cell=0; cell<n_cells; ++cell) {
     auto &cell_tally{cell_tallies[cell]};
     for(int thread =0; thread<n_omp_threads;++thread)
       cell_tally.merge_in_tally(thread_tallies[thread][cell]);
   }
-#else
-  // normal serial version
-  for (auto &photon : photons)
-    transport_photon(rank_cell_offset, photon, cpu_cells_ptr, cell_tallies.data());
 #endif
 }
 //------------------------------------------------------------------------------------------------//

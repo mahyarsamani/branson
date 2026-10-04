@@ -71,6 +71,12 @@ std::vector<Photon> replicated_transport(
     std::cout<<"gpu transport time: "<<t_transport.get_time("gpu transport")<<std::endl;
   }
   else {
+    // MYSTUFF
+    // NOTE: replicated mode always uses the scalar ref kernel, also in HOV
+    // builds. cpu_transport_photons_hov is only wired into particle passing,
+    // and only imc_particle_pass_driver refreshes the SoA cell properties
+    // (refresh_cells_soa) each step.
+    // FFUTSYM
     cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
   }
 

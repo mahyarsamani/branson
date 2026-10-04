@@ -28,6 +28,11 @@
 #include "source.h"
 #include "timer.h"
 #include "write_silo.h"
+// MYSTUFF
+#ifdef HOV
+#include "hov_setup.h"
+#endif
+// FFUTSYM
 
 void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
                               const IMC_Parameters &imc_parameters,
@@ -52,6 +57,13 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
 
     //set opacity, Fleck factor, all energy to source
     mesh.calculate_photon_energy(imc_state, n_user_photons);
+    // MYSTUFF
+#ifdef HOV
+    // f, op_a and op_s were just recomputed; the hov kernel reads them from
+    // the SoA copies, so refresh those (geometry was copied once in main.cc).
+    refresh_cells_soa(mesh.get_cells());
+#endif
+    // FFUTSYM
 
     // all reduce to get total source energy to make correct number of
     // particles on each rank

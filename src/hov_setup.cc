@@ -1,4 +1,7 @@
 #include "hov_setup.h"
+// MYSTUFF
+#include <algorithm>
+// FFUTSYM
 
 #ifdef HOV
 
@@ -113,5 +116,27 @@ void collect_tally_soa(std::vector<double>& rank_abs_E, std::vector<double>& ran
         rank_track_E[i] += g_hov_data.tally_track_E_soa[i];
     }
 }
+
+// MYSTUFF
+// Copy the per-step cell properties (set by Mesh::calculate_photon_energy)
+// into the SoA arrays. Writes in place, without resizing, so the data_base
+// pointers held by pair_f, pair_op_a and pair_op_s stay valid.
+void refresh_cells_soa(const std::vector<Cell>& cells) {
+    for (size_t i = 0; i < cells.size(); ++i) {
+        g_hov_data.f_soa[i] = cells[i].get_f();
+        for (int g = 0; g < BRANSON_N_GROUPS; ++g) {
+            g_hov_data.op_a_soa[g][i] = cells[i].get_op_a(g);
+            g_hov_data.op_s_soa[g][i] = cells[i].get_op_s(g);
+        }
+    }
+}
+
+// Zero the SoA tallies in place, the counterpart of the fresh cell_tallies
+// that particle_pass_transport builds on every call.
+void reset_tally_soa() {
+    std::fill(g_hov_data.tally_abs_E_soa.begin(), g_hov_data.tally_abs_E_soa.end(), 0.0);
+    std::fill(g_hov_data.tally_track_E_soa.begin(), g_hov_data.tally_track_E_soa.end(), 0.0);
+}
+// FFUTSYM
 
 #endif // HOV

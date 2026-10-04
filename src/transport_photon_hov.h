@@ -4,6 +4,9 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+// MYSTUFF
+#include <numeric>
+// FFUTSYM
 #include "cell.h"
 #include "cell_tally.h"
 #include "photon.h"
@@ -11,13 +14,19 @@
 #include "sampling_functions.h"
 
 #ifdef HOV
+#ifdef ANNOTATE
 extern "C" {
 #include "annotate.h"
 }
+#endif // ANNOTATE
 
+// MYSTUFF
+// Same as sgn() in cell.h: 1 only for a strictly positive component, so an
+// angle component of exactly +/-0.0 picks the same face as the ref kernel.
 static inline double sgn_local(double v) {
-    return v < 0.0 ? 0 : 1;
+    return (0.0 < v) ? 1 : 0;
 }
+// FFUTSYM
 
 void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
                                std::vector<Photon> &photons,
@@ -27,22 +36,35 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
     using Constants::bc_type;
     using Constants::c;
 
-    std::vector<uint32_t> active_photons;
-    active_photons.reserve(photons.size());
+    // MYSTUFF
+    // Every photon passed in is transported, as in cpu_transport_photons. The
+    // descriptors left from the previous step (CENSUS) or from the sending
+    // rank (PASS) must not be used to filter the initial population.
+    std::vector<uint32_t> active_photons(photons.size());
+    std::iota(active_photons.begin(), active_photons.end(), 0);
 
-    // Initial population
-    for (size_t i = 0; i < photons.size(); ++i) {
-        if (photons[i].is_active()) {
-            active_photons.push_back((uint32_t)i);
-        }
-    }
+    // phtn_cells_idx and every pair were created for this many photons, so
+    // a sweep over more active photons is split into chunks of at most
+    // hov_capacity. Each chunk is one ROI over a disjoint subset of the sweep;
+    // per-photon physics does not depend on the chunking.
+    const size_t hov_capacity = g_hov_data.phtn_cells_idx.size();
+    // FFUTSYM
 
     while (!active_photons.empty()) {
+      // MYSTUFF
+      for (size_t chunk_begin = 0; chunk_begin < active_photons.size();
+           chunk_begin += hov_capacity) {
+        const size_t chunk_size =
+            std::min(hov_capacity, active_photons.size() - chunk_begin);
+      // FFUTSYM
         // Phase A: Setup index array for HOV
-        for (size_t i = 0; i < active_photons.size(); ++i) {
-            uint32_t pid = active_photons[i];
+        // MYSTUFF
+        // i indexes the chunk, so it stays below hov_capacity
+        for (size_t i = 0; i < chunk_size; ++i) {
+            uint32_t pid = active_photons[chunk_begin + i];
             g_hov_data.phtn_cells_idx[i] = photons[pid].get_cell() - rank_cell_offset;
         }
+        // FFUTSYM
 
         // Phase B: Physics step (ROI)
 #if defined(ANNOTATE)
@@ -52,8 +74,10 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
 #endif // SYNC_ON_ROI
 #endif // ANNOTATE
 
-        for (size_t i = 0; i < active_photons.size(); ++i) {
-            uint32_t pid = active_photons[i];
+        // MYSTUFF
+        for (size_t i = 0; i < chunk_size; ++i) {
+            uint32_t pid = active_photons[chunk_begin + i];
+        // FFUTSYM
             Photon& phtn = photons[pid];
             auto& rng = phtn.get_rng();
             uint32_t group = phtn.get_group();
@@ -164,6 +188,9 @@ void cpu_transport_photons_hov(const uint32_t rank_cell_offset,
         annotate_synchronize_(2);
 #endif // SYNC_ON_ROI
 #endif // ANNOTATE
+      // MYSTUFF
+      } // End chunks of this sweep
+      // FFUTSYM
 
         // Phase C: State updates and compaction
         std::vector<uint32_t> next_active;
